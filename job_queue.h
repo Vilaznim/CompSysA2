@@ -3,8 +3,38 @@
 
 #include <pthread.h>
 
+/*
+ * job_queue
+ *
+ * The struct is intentionally not opaque: the assignment expects the
+ * caller to allocate a `struct job_queue` (e.g. `struct job_queue q;`)
+ * and then call job_queue_init(&q, capacity).
+ *
+ * Fields:
+ *  - buffer/capacity/head/tail/size : circular buffer implementation
+ *  - mutex/not_empty/not_full     : synchronization primitives
+ *  - empty                        : optional condvar to let destroy wait until empty
+ *  - destroyed                    : flag set by job_queue_destroy()
+ *
+ * Implementations should use the mutex to protect all fields and use
+ * condition variables for blocking push/pop/destroy semantics.
+ */
 struct job_queue {
-  int dummy;
+  /* circular buffer of void* */
+  void **buffer;     /* dynamically allocated array of pointers */
+  int capacity;      /* max elements in buffer (size of buffer array) */
+  int size;          /* current number of elements stored */
+  int head;          /* index of next element to pop */
+  int tail;          /* index where next push will store */
+
+  /* synchronization */
+  pthread_mutex_t mutex;
+  pthread_cond_t not_empty; /* signalled when size goes from 0 -> >0 */
+  pthread_cond_t not_full;  /* signalled when size goes from capacity -> <capacity */
+  pthread_cond_t empty;     /* signalled when size == 0 (helpful for destroy) */
+
+  /* state flags */
+  int destroyed;      /* set to 1 when job_queue_destroy() is called */
 };
 
 // Initialise a job queue with the given capacity.  The queue starts out
