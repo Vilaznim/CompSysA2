@@ -26,7 +26,31 @@ struct worker_args
   const char *needle;
 };
 
+int fauxgrep_file(char const *needle, char const *path) {
+  FILE *f = fopen(path, "r");
 
+  if (f == NULL) {
+    warn("failed to open %s", path);
+    return -1;
+  }
+
+  char *line = NULL;
+  size_t linelen = 0;
+  int lineno = 1;
+
+  while (getline(&line, &linelen, f) != -1) {
+    if (strstr(line, needle) != NULL) {
+      printf("%s:%d: %s", path, lineno, line);
+    }
+
+    lineno++;
+  }
+
+  free(line);
+  fclose(f);
+
+  return 0;
+}
 
 int main(int argc, char *const *argv)
 {
