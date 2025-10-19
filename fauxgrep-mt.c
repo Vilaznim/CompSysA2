@@ -26,6 +26,23 @@ struct worker_args
   const char *needle;
 };
 
+void *worker(void *arg_) {
+    struct worker_args *arg = arg_;
+    for (;;) {
+        char *path = NULL;
+        int rc = job_queue_pop(arg->q, (void**)&path);
+        if (rc == -1) break;              // queue destroyed → time to exit
+        // Search 'path' for 'needle' just like fauxgrep_file() does:
+        //   - read file line by line
+        //   - if strstr(line, needle) -> print "file:lineNo: line"
+        // Guard only the printing:
+        // pthread_mutex_lock(arg->print_mu); print...; pthread_mutex_unlock(...)
+        // (Do NOT hold the print lock while reading the file.)
+        free(path);
+    }
+    return NULL;
+}
+
 int fauxgrep_file(char const *needle, char const *path) {
   FILE *f = fopen(path, "r");
 
