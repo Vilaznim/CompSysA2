@@ -11,21 +11,21 @@ int job_queue_init(struct job_queue *job_queue, int capacity)
     return -1;
   }
 
-  /* Allocate buffer first so we can bail out without touching pthread objects. */
+  // Allocate buffer first so we can bail out without touching pthread objects.
   job_queue->buffer = malloc(sizeof(void *) * (size_t)capacity);
   if (job_queue->buffer == NULL)
   {
     return -1;
   }
 
-  /* Initialize core fields */
+  // Initialize core fields 
   job_queue->capacity = capacity;
   job_queue->size = 0;
   job_queue->head = 0;
   job_queue->tail = 0;
   job_queue->destroyed = 0;
 
-  /* Initialize mutex and condvars. If any init fails we must clean up. */
+  // Initialize mutex and condvars. If any init fails we must clean up.   
   if (pthread_mutex_init(&job_queue->mutex, NULL) != 0)
   {
     free(job_queue->buffer);
@@ -65,7 +65,7 @@ int job_queue_init(struct job_queue *job_queue, int capacity)
 
 int job_queue_destroy(struct job_queue *job_queue)
 {
-  assert(0);
+  
 }
 
 int job_queue_push(struct job_queue *job_queue, void *data)
