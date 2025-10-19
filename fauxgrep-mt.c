@@ -26,30 +26,21 @@ struct worker_args
   const char *needle;
 };
 
-// Worker thread: pop file paths from the queue and process them.
-static void *worker_thread(void *vargs)
-{
-  struct worker_args *args = vargs;
-  struct job_queue *q = args->q;
-  const char *needle = args->needle;
-
-  for (;;)
-  {
-    void *data = NULL;
-    int r = job_queue_pop(q, &data);
-    if (r != 0)
-    {
-      // queue was destroyed and empty -> exit worker
-      break;
+void *worker(void *arg_) {
+    struct worker_args *arg = arg_;
+    for (;;) {
+        char *path = NULL;
+        int rc = job_queue_pop(arg->q, (void**)&path);
+        if (rc == -1) break;              // queue destroyed → time to exit
+        // Search 'path' for 'needle' just like fauxgrep_file() does:
+        //   - read file line by line
+        //   - if strstr(line, needle) -> print "file:lineNo: line"
+        // Guard only the printing:
+        // pthread_mutex_lock(arg->print_mu); print...; pthread_mutex_unlock(...)
+        // (Do NOT hold the print lock while reading the file.)
+        free(path);
     }
-
-    char *path = data;
-    // process file and free the duplicated path
-    (void)fauxgrep_file(needle, path);
-    free(path);
-  }
-
-  return NULL;
+    return NULL;
 }
 
 int fauxgrep_file(char const *needle, char const *path)
@@ -80,6 +71,29 @@ int fauxgrep_file(char const *needle, char const *path)
   fclose(f);
 
   return 0;
+}
+
+// Worker thread: pop file paths from the queue and process them.
+static void *worker_thread(void *vargs) {
+  struct worker_args *args = vargs;
+  struct job_queue *q = args->q;
+  const char *needle = args->needle;
+
+  for (;;) {
+    void *data = NULL;
+    int r = job_queue_pop(q, &data);
+    if (r != 0) {
+      // queue was destroyed and empty -> exit worker
+      break;
+    }
+
+    char *path = data;
+    // process file and free the duplicated path
+    (void)fauxgrep_file(needle, path);
+    free(path);
+  }
+
+  return NULL;
 }
 
 int main(int argc, char *const *argv)
@@ -118,7 +132,18 @@ int main(int argc, char *const *argv)
     paths = &argv[2];
   }
 
-  assert(0); // Initialise the job queue and some worker threads here.
+  struct job_queue q;
+  job_queue_init(&q);
+
+  // Create worker threads
+  pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
+  struct worker_args args = { .q = &q, .needle = needle };
+  
+  for (int i = 0; i < num_threads; i++) {
+    if (pthread_create(&threads[i], NULL, worker_thread, &args) != 0) {
+      err(1, "pthread_create() failed");
+    }
+  }
 
   // FTS_LOGICAL = follow symbolic links
   // FTS_NOCHDIR = do not change the working directory of the process
@@ -142,7 +167,11 @@ int main(int argc, char *const *argv)
     case FTS_D:
       break;
     case FTS_F:
-      assert(0); // Process the file p->fts_path, somehow.
+      char *path_copy = strdup(p->fts_path);
+      if (path_copy == NULL) {
+        err(1, "strdup() failed");
+      }
+      job_queue_push(&q, path_copy);
       break;
     default:
       break;
@@ -151,7 +180,16 @@ int main(int argc, char *const *argv)
 
   fts_close(ftsp);
 
-  assert(0); // Shut down the job queue and the worker threads here.
+  // Destroy queue and wait for workers to finish
+  job_queue_destroy(&q);
+  
+  for (int i = 0; i < num_threads; i++) {
+    if (pthread_join(threads[i], NULL) != 0) {
+      err(1, "pthread_join() failed");
+    }
+  }
+  
+  free(threads);
 
   return 0;
 }
