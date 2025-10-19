@@ -26,6 +26,7 @@ struct worker_args
   const char *needle;
 };
 
+<<<<<<< HEAD
 void *worker(void *arg_) {
     struct worker_args *arg = arg_;
     for (;;) {
@@ -47,6 +48,12 @@ int fauxgrep_file(char const *needle, char const *path)
 {
   FILE *f = fopen(path, "r");
 
+=======
+int fauxgrep_file(char const *needle, char const *path)
+{
+  FILE *f = fopen(path, "r");
+
+>>>>>>> bestbranch
   if (f == NULL)
   {
     warn("failed to open %s", path);
@@ -74,15 +81,29 @@ int fauxgrep_file(char const *needle, char const *path)
 }
 
 // Worker thread: pop file paths from the queue and process them.
+<<<<<<< HEAD
 static void *worker_thread(void *vargs) {
+=======
+static void *worker_thread(void *vargs)
+{
+>>>>>>> bestbranch
   struct worker_args *args = vargs;
   struct job_queue *q = args->q;
   const char *needle = args->needle;
 
+<<<<<<< HEAD
   for (;;) {
     void *data = NULL;
     int r = job_queue_pop(q, &data);
     if (r != 0) {
+=======
+  for (;;)
+  {
+    void *data = NULL;
+    int r = job_queue_pop(q, &data);
+    if (r != 0)
+    {
+>>>>>>> bestbranch
       // queue was destroyed and empty -> exit worker
       break;
     }
@@ -132,6 +153,7 @@ int main(int argc, char *const *argv)
     paths = &argv[2];
   }
 
+<<<<<<< HEAD
   struct job_queue q;
   job_queue_init(&q);
 
@@ -142,6 +164,37 @@ int main(int argc, char *const *argv)
   for (int i = 0; i < num_threads; i++) {
     if (pthread_create(&threads[i], NULL, worker_thread, &args) != 0) {
       err(1, "pthread_create() failed");
+=======
+  // Initialise job queue and spawn worker threads.
+  struct job_queue q;
+  const int q_capacity = 64;
+  if (job_queue_init(&q, q_capacity) != 0)
+  {
+    err(1, "failed to init job queue");
+  }
+
+  pthread_t *threads = malloc(sizeof(pthread_t) * (size_t)num_threads);
+  if (threads == NULL)
+  {
+    err(1, "failed to allocate threads array");
+  }
+
+  // Create per-thread args array so each thread gets its own args struct.
+  struct worker_args *targs = malloc(sizeof(struct worker_args) * (size_t)num_threads);
+  if (targs == NULL)
+  {
+    free(threads);
+    err(1, "failed to allocate thread args");
+  }
+
+  for (int i = 0; i < num_threads; i++)
+  {
+    targs[i].q = &q;
+    targs[i].needle = needle;
+    if (pthread_create(&threads[i], NULL, worker_thread, &targs[i]) != 0)
+    {
+      err(1, "failed to create worker thread");
+>>>>>>> bestbranch
     }
   }
 
@@ -167,12 +220,32 @@ int main(int argc, char *const *argv)
     case FTS_D:
       break;
     case FTS_F:
+<<<<<<< HEAD
       char *path_copy = strdup(p->fts_path);
       if (path_copy == NULL) {
         err(1, "strdup() failed");
       }
       job_queue_push(&q, path_copy);
       break;
+=======
+    {
+      // Duplicate the path because the FTS library may reuse buffers.
+      char *pathcopy = strdup(p->fts_path);
+      if (pathcopy == NULL)
+      {
+        warn("strdup failed for %s", p->fts_path);
+        break;
+      }
+
+      // Push the duplicated path onto the job queue. Worker frees it.
+      if (job_queue_push(&q, pathcopy) != 0)
+      {
+        // If push fails (e.g., queue destroyed), free and continue.
+        free(pathcopy);
+      }
+    }
+    break;
+>>>>>>> bestbranch
     default:
       break;
     }
@@ -180,6 +253,7 @@ int main(int argc, char *const *argv)
 
   fts_close(ftsp);
 
+<<<<<<< HEAD
   // Destroy queue and wait for workers to finish
   job_queue_destroy(&q);
   
@@ -190,6 +264,21 @@ int main(int argc, char *const *argv)
   }
   
   free(threads);
+=======
+  // No more files will be pushed. Destroy the queue which blocks until all
+  // queued jobs are processed. This wakes blocked poppers so they can exit.
+  if (job_queue_destroy(&q) != 0)
+  {
+    err(1, "failed to destroy job queue");
+  }
+>>>>>>> bestbranch
 
+  // Join worker threads and free resources.
+  for (int i = 0; i < num_threads; i++)
+  {
+    pthread_join(threads[i], NULL);
+  }
+  free(threads);
+  free(targs);
   return 0;
 }
