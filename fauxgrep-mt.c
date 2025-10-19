@@ -26,34 +26,10 @@ struct worker_args
   const char *needle;
 };
 
-<<<<<<< HEAD
-void *worker(void *arg_) {
-    struct worker_args *arg = arg_;
-    for (;;) {
-        char *path = NULL;
-        int rc = job_queue_pop(arg->q, (void**)&path);
-        if (rc == -1) break;              // queue destroyed → time to exit
-        // Search 'path' for 'needle' just like fauxgrep_file() does:
-        //   - read file line by line
-        //   - if strstr(line, needle) -> print "file:lineNo: line"
-        // Guard only the printing:
-        // pthread_mutex_lock(arg->print_mu); print...; pthread_mutex_unlock(...)
-        // (Do NOT hold the print lock while reading the file.)
-        free(path);
-    }
-    return NULL;
-}
-
 int fauxgrep_file(char const *needle, char const *path)
 {
   FILE *f = fopen(path, "r");
 
-=======
-int fauxgrep_file(char const *needle, char const *path)
-{
-  FILE *f = fopen(path, "r");
-
->>>>>>> bestbranch
   if (f == NULL)
   {
     warn("failed to open %s", path);
@@ -81,29 +57,18 @@ int fauxgrep_file(char const *needle, char const *path)
 }
 
 // Worker thread: pop file paths from the queue and process them.
-<<<<<<< HEAD
-static void *worker_thread(void *vargs) {
-=======
 static void *worker_thread(void *vargs)
 {
->>>>>>> bestbranch
   struct worker_args *args = vargs;
   struct job_queue *q = args->q;
   const char *needle = args->needle;
 
-<<<<<<< HEAD
-  for (;;) {
-    void *data = NULL;
-    int r = job_queue_pop(q, &data);
-    if (r != 0) {
-=======
   for (;;)
   {
     void *data = NULL;
     int r = job_queue_pop(q, &data);
     if (r != 0)
     {
->>>>>>> bestbranch
       // queue was destroyed and empty -> exit worker
       break;
     }
@@ -153,18 +118,6 @@ int main(int argc, char *const *argv)
     paths = &argv[2];
   }
 
-<<<<<<< HEAD
-  struct job_queue q;
-  job_queue_init(&q);
-
-  // Create worker threads
-  pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
-  struct worker_args args = { .q = &q, .needle = needle };
-  
-  for (int i = 0; i < num_threads; i++) {
-    if (pthread_create(&threads[i], NULL, worker_thread, &args) != 0) {
-      err(1, "pthread_create() failed");
-=======
   // Initialise job queue and spawn worker threads.
   struct job_queue q;
   const int q_capacity = 64;
@@ -194,7 +147,6 @@ int main(int argc, char *const *argv)
     if (pthread_create(&threads[i], NULL, worker_thread, &targs[i]) != 0)
     {
       err(1, "failed to create worker thread");
->>>>>>> bestbranch
     }
   }
 
@@ -220,14 +172,6 @@ int main(int argc, char *const *argv)
     case FTS_D:
       break;
     case FTS_F:
-<<<<<<< HEAD
-      char *path_copy = strdup(p->fts_path);
-      if (path_copy == NULL) {
-        err(1, "strdup() failed");
-      }
-      job_queue_push(&q, path_copy);
-      break;
-=======
     {
       // Duplicate the path because the FTS library may reuse buffers.
       char *pathcopy = strdup(p->fts_path);
@@ -245,7 +189,6 @@ int main(int argc, char *const *argv)
       }
     }
     break;
->>>>>>> bestbranch
     default:
       break;
     }
@@ -253,25 +196,12 @@ int main(int argc, char *const *argv)
 
   fts_close(ftsp);
 
-<<<<<<< HEAD
-  // Destroy queue and wait for workers to finish
-  job_queue_destroy(&q);
-  
-  for (int i = 0; i < num_threads; i++) {
-    if (pthread_join(threads[i], NULL) != 0) {
-      err(1, "pthread_join() failed");
-    }
-  }
-  
-  free(threads);
-=======
   // No more files will be pushed. Destroy the queue which blocks until all
   // queued jobs are processed. This wakes blocked poppers so they can exit.
   if (job_queue_destroy(&q) != 0)
   {
     err(1, "failed to destroy job queue");
   }
->>>>>>> bestbranch
 
   // Join worker threads and free resources.
   for (int i = 0; i < num_threads; i++)
