@@ -26,10 +26,38 @@ struct worker_args
   const char *needle;
 };
 
-int fauxgrep_file(char const *needle, char const *path) {
+// Worker thread: pop file paths from the queue and process them.
+static void *worker_thread(void *vargs)
+{
+  struct worker_args *args = vargs;
+  struct job_queue *q = args->q;
+  const char *needle = args->needle;
+
+  for (;;)
+  {
+    void *data = NULL;
+    int r = job_queue_pop(q, &data);
+    if (r != 0)
+    {
+      // queue was destroyed and empty -> exit worker
+      break;
+    }
+
+    char *path = data;
+    // process file and free the duplicated path
+    (void)fauxgrep_file(needle, path);
+    free(path);
+  }
+
+  return NULL;
+}
+
+int fauxgrep_file(char const *needle, char const *path)
+{
   FILE *f = fopen(path, "r");
 
-  if (f == NULL) {
+  if (f == NULL)
+  {
     warn("failed to open %s", path);
     return -1;
   }
@@ -38,8 +66,10 @@ int fauxgrep_file(char const *needle, char const *path) {
   size_t linelen = 0;
   int lineno = 1;
 
-  while (getline(&line, &linelen, f) != -1) {
-    if (strstr(line, needle) != NULL) {
+  while (getline(&line, &linelen, f) != -1)
+  {
+    if (strstr(line, needle) != NULL)
+    {
       printf("%s:%d: %s", path, lineno, line);
     }
 
@@ -51,8 +81,6 @@ int fauxgrep_file(char const *needle, char const *path) {
 
   return 0;
 }
-
-
 
 int main(int argc, char *const *argv)
 {
