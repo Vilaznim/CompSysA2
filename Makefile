@@ -1,6 +1,7 @@
 CC=gcc
 CFLAGS=-g -Wall -Wextra -pedantic -std=gnu99 -pthread
 EXAMPLES=fibs fauxgrep fauxgrep-mt fhistogram fhistogram-mt
+TESTS=
 
 .PHONY: all test clean ../src.zip
 
@@ -13,16 +14,16 @@ job_queue.o: job_queue.c job_queue.h
 	$(CC) -o $@ $^ $(CFLAGS)
 
 fauxgrep: fauxgrep.c job_queue.o
-    $(CC) $(CFLAGS) fauxgrep.c job_queue.o -o fauxgrep
+	$(CC) $(CFLAGS) fauxgrep.c job_queue.o -o fauxgrep
 
 fauxgrep-mt: fauxgrep-mt.c job_queue.o
-    $(CC) $(CFLAGS) fauxgrep-mt.c job_queue.o -o fauxgrep-mt
+	$(CC) $(CFLAGS) fauxgrep-mt.c job_queue.o -o fauxgrep-mt
 
-fhistogram: fhistogram.c histogram.o
-    $(CC) $(CFLAGS) fhistogram.c histogram.o -o fhistogram
+fhistogram: fhistogram.c
+	$(CC) $(CFLAGS) fhistogram.c -o fhistogram
 
-fhistogram-mt: fhistogram-mt.c job_queue.o histogram.o
-    $(CC) $(CFLAGS) fhistogram-mt.c job_queue.o histogram.o -o fhistogram-mt
+fhistogram-mt: fhistogram-mt.c job_queue.o
+	$(CC) $(CFLAGS) fhistogram-mt.c job_queue.o -o fhistogram-mt
 
 
 test: $(TESTS)
