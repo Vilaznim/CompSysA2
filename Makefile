@@ -12,6 +12,19 @@ job_queue.o: job_queue.c job_queue.h
 %: %.c job_queue.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
+fauxgrep: fauxgrep.c job_queue.o
+    $(CC) $(CFLAGS) fauxgrep.c job_queue.o -o fauxgrep
+
+fauxgrep-mt: fauxgrep-mt.c job_queue.o
+    $(CC) $(CFLAGS) fauxgrep-mt.c job_queue.o -o fauxgrep-mt
+
+fhistogram: fhistogram.c histogram.o
+    $(CC) $(CFLAGS) fhistogram.c histogram.o -o fhistogram
+
+fhistogram-mt: fhistogram-mt.c job_queue.o histogram.o
+    $(CC) $(CFLAGS) fhistogram-mt.c job_queue.o histogram.o -o fhistogram-mt
+
+
 test: $(TESTS)
 	@set e; for test in $(TESTS); do echo ./$$test; ./$$test; done
 
